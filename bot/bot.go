@@ -3,13 +3,17 @@ package bot
 import (
 	"fmt"
 	"github.com/bwmarrin/discordgo"
+	"math/rand"
 	"os"
 	"os/signal"
 	"sneezy-bot/config"
 	"syscall"
+	"time"
 )
 
 var ownId string
+// Extend to multiple servers later but for now cba
+var sneezed bool
 
 func Start() {
 	// Create bot session.
@@ -39,6 +43,9 @@ func Start() {
 		return
 	}
 
+	loadSneeze(goBot)
+
+
 	// Wait here until CTRL-C or other term signal is received.
 	fmt.Println("Bot is now running.  Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
@@ -58,15 +65,45 @@ func messageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	if m.Content == config.BotPrefix+"bless" {
-		_, err := s.ChannelMessageSend(m.ChannelID, "Thank you.")
+	if m.Content == config.BotPrefix+"bless" && sneezed {
+		_, err := s.ChannelMessageSend(m.ChannelID, "Thank you " + m.Author.Username + "!")
+		sneezed = false
 		if err != nil {
 			return
 		}
 	} else if m.Content == "achoo" {
-		_, err := s.ChannelMessageSend(m.ChannelID, "Bless you!")
+		_, err := s.ChannelMessageSend(m.ChannelID, "Bless you " + m.Author.Username + "!")
 		if err != nil {
 			return
 		}
 	}
+}
+
+func loadSneeze(goBot *discordgo.Session) {
+	// Start a random duration sleeping thread between 30 minutes and 24 hours.
+	go func() {
+		rand.Seed(time.Now().UnixNano())
+		n := 30 + rand.Intn(1410)
+		time.Sleep(time.Duration(n)*time.Minute)
+		sneeze(goBot)
+	}()
+}
+
+func sneeze(goBot *discordgo.Session) {
+	// Send a message in a random public channel.
+
+	// Terrible please delete later.
+	var guildId = goBot.State.Guilds[0].ID
+
+	chs, err := goBot.GuildChannels(guildId)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	_, err = goBot.ChannelMessageSend(chs[rand.Intn(len(chs))].ID, "achoo")
+	if err != nil {
+		return
+	}
+	sneezed = true
+	loadSneeze(goBot)
 }
