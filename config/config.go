@@ -38,3 +38,37 @@ func ReadConfig() error {
 
 	return nil
 }
+
+func ReadData() (map[string]int, error) {
+	fmt.Println("Reading data file...")
+	file, err := ioutil.ReadFile("./data.json")
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return nil, err
+	}
+
+	var result map[string]int
+	err = json.Unmarshal(file, &result)
+	if err != nil {
+		fmt.Println(err.Error())
+		return nil, err
+	}
+	return result, nil
+}
+
+func WriteData(data map[string]int) error {
+	fmt.Println("Writing to data file...")
+
+	str, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile("./data.json", str, 0755)
+	if err != nil {
+		return err
+	}
+	fmt.Println("Updated data file.")
+
+	return nil
+}

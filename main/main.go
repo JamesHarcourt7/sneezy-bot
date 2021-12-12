@@ -13,7 +13,13 @@ func main() {
 		return
 	}
 
-	bot.Start()
+	data, err := config.ReadData()
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	bot.Start(data)
 	<-make(chan struct{})
 
 	return

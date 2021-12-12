@@ -17,15 +17,19 @@ var ownId string
 // Extend to multiple servers later but for now cba
 var sneezed bool
 var sneezeChannel string
+var leaderBoard map[string]int
 
-func Start() {
+func Start(data map[string]int) {
 	// Create bot session.
 	goBot, err := discordgo.New("Bot " + config.Token)
+	// Specify intents
+	goBot.Identify.Intents = discordgo.MakeIntent(discordgo.IntentsAll)
 
 	if err != nil {
 		fmt.Println(err.Error())
 		return
 	}
+	leaderBoard = data
 
 	// Make bot a user using User function
 	u, err := goBot.User("@me")
@@ -39,6 +43,7 @@ func Start() {
 
 	// Add message handler function
 	goBot.AddHandler(messageHandler)
+	goBot.AddHandler(guildCreateHandler)
 
 	err = goBot.Open()
 	if err != nil {
@@ -74,6 +79,17 @@ func messageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 			if err != nil {
 				return
 			}
+			_, ok := leaderBoard[m.Author.ID]
+			if ok {
+				leaderBoard[m.Author.ID] = leaderBoard[m.Author.ID] + 10
+			} else {
+				leaderBoard[m.Author.ID] = 10
+			}
+			err = config.WriteData(leaderBoard)
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+			fmt.Println("Updated leaderboard.")
 		}
 	} else if m.Content == "achoo" {
 		_, err := s.ChannelMessageSend(m.ChannelID, "Bless you "+m.Author.Username+"!")
@@ -87,7 +103,7 @@ func loadSneeze(goBot *discordgo.Session) {
 	// Start a random duration sleeping thread between 30 minutes and 24 hours.
 	go func() {
 		rand.Seed(time.Now().UnixNano())
-		n := 30 + rand.Intn(1410)
+		n := 1//0 + rand.Intn(1)
 		fmt.Println("Sneezing in " + strconv.Itoa(n) + " minutes.")
 		time.Sleep(time.Duration(n) * time.Minute)
 		sneeze(goBot)
@@ -97,6 +113,7 @@ func loadSneeze(goBot *discordgo.Session) {
 func sneeze(goBot *discordgo.Session) {
 	// Send a message in a random public channel.
 
+	fmt.Println("Achoo")
 	// Terrible please delete later.
 	var guildId = goBot.State.Guilds[0].ID
 
@@ -113,4 +130,37 @@ func sneeze(goBot *discordgo.Session) {
 	sneezed = true
 	loadSneeze(goBot)
 	return
+}
+
+func guildCreateHandler(s *discordgo.Session, gu *discordgo.GuildCreate) {
+	time.Sleep(5*time.Second)
+	guild, err := s.State.Guild(gu.ID)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	edits := false
+	for _, member := range guild.Members {
+		if member.User.Bot {
+			continue
+		}
+		if member.User.ID == s.State.User.ID {
+			fmt.Println("found self")
+			continue
+		}
+		fmt.Println(member.User.Username)
+		_, ok := leaderBoard[member.User.ID]
+		if !ok {
+			edits = true
+			fmt.Println("initialised member " + member.User.Username)
+			leaderBoard[member.User.ID] = 0
+		}
+	}
+	if edits {
+		err = config.WriteData(leaderBoard)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+	}
 }
